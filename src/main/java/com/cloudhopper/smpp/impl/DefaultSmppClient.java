@@ -204,7 +204,7 @@ public class DefaultSmppClient implements SmppClient {
                 // make sure that the resources are always cleaned up
                 try { 
                     logger.debug("Closing session - not able to bind to " + config.getName());
-                    session.close(); 
+                    session.destroy();
                 } 
                 catch (Exception e) {
                     logger.debug("Exception while trying to close connection to " + config.getName(), e);
