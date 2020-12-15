@@ -4,6 +4,15 @@ Cloudhopper by Twitter
 cloudhopper-smpp
 ----------------
 
+## 5.1.0-168
+ - SRE-4307 Added Smpp Session Status Counters as mbean attributes
+
+## 5.1.0-157
+ - SRE-3922 Added Smpp Session Counters as individual attributes
+
+## 5.1.0-113 - ?
+ - ?
+
 ## 5.0.9 - 2015-11-24
  - Add support for missing pdus and tags
  - Allow unbound channel to respond to enquire_link PDU

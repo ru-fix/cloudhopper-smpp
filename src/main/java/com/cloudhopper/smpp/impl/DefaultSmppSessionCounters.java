@@ -22,7 +22,6 @@ package com.cloudhopper.smpp.impl;
 
 import com.cloudhopper.smpp.SmppSessionCounters;
 import com.cloudhopper.smpp.util.ConcurrentCommandCounter;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Default implementation of a SmppServerCounters interface.

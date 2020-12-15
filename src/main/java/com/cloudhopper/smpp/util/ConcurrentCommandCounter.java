@@ -147,6 +147,30 @@ public class ConcurrentCommandCounter {
         return this.responseCommandStatusCounter;
     }
 
+    public double getAvgWaitTime(){
+        double avgWaitTime = 0;
+        if (getResponse() > 0) {
+            avgWaitTime = (double) getRequestWaitTime() / (double) getResponse();
+        }
+        return avgWaitTime;
+    }
+
+    public double getAvgResponseTime(){
+        double avgResponseTime = 0;
+        if (getResponse() > 0) {
+            avgResponseTime = (double) getRequestResponseTime() / (double) getResponse();
+        }
+        return avgResponseTime;
+    }
+
+    public double getAvgEstimatedProcessingTime(){
+        double avgEstimatedProcessingTime = 0;
+        if (getResponse() > 0) {
+            avgEstimatedProcessingTime = (double) getRequestEstimatedProcessingTime() / (double) getResponse();
+        }
+        return avgEstimatedProcessingTime;
+    }
+
     /**
      * Dump and reset.
      *
