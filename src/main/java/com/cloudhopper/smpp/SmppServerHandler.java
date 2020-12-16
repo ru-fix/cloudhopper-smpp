@@ -22,6 +22,7 @@ package com.cloudhopper.smpp;
 
 import com.cloudhopper.smpp.pdu.BaseBind;
 import com.cloudhopper.smpp.pdu.BaseBindResp;
+import com.cloudhopper.smpp.type.SessionCreatedFailedException;
 import com.cloudhopper.smpp.type.SmppProcessingException;
 
 /**
@@ -79,8 +80,11 @@ public interface SmppServerHandler {
      *      rejected.  If thrown, a bind response with the SMPP status code
      *      contained in this exception will be generated and returned back to
      *      the client.
+     * @throws SessionCreatedFailedException Thrown if a problem occurred
+     *      while after-creation actions processing and before OK response
+     *      sending to the binding client.
      */
-    public void sessionCreated(Long sessionId, SmppServerSession session, BaseBindResp preparedBindResponse) throws SmppProcessingException;
+    public void sessionCreated(Long sessionId, SmppServerSession session, BaseBindResp preparedBindResponse) throws SmppProcessingException, SessionCreatedFailedException;
 
     /**
      * Triggered when a session is unbound and closed with the client.

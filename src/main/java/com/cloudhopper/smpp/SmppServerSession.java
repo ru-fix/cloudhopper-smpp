@@ -43,4 +43,11 @@ public interface SmppServerSession extends SmppSession {
      */
     public void serverReady(SmppSessionHandler sessionHandler);
 
+    /**
+     * Indicates that the local endpoint (server) is not ready to start
+     * processing requests for the session. Aborts the bind process
+     * by the remote endpoint by sending back the failed bind response.
+     */
+    public void serverNotReady();
+
 }
