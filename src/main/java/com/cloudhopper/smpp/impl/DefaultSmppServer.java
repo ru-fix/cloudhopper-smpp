@@ -365,8 +365,8 @@ public class DefaultSmppServer implements SmppServer, DefaultSmppServerMXBean {
         try {
             this.serverHandler.sessionCreated(sessionId, session, preparedBindResponse);
         } catch (SessionCreatedFailedException e) {
-            logger.error("sessionCreated call on serverHandler failed. Unable to finish the binding. " +
-                    "Session is going to be destroyed.", e);
+            logger.error("sessionCreated call on {} failed. Unable to finish the binding. " +
+                    "Session is going to be destroyed.", serverHandler.getClass().getName(), e);
             session.serverNotReady();
             destroySession(sessionId, session);
             throw e;
