@@ -20,6 +20,8 @@ package com.cloudhopper.smpp.util;
  * #L%
  */
 
+import com.cloudhopper.smpp.SmppConstants;
+
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -33,13 +35,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConcurrentCommandStatusCounter {
     
     private ConcurrentHashMap<Integer,AtomicInteger> map;
+
+    private AtomicInteger serverErrorCounter;
+    private AtomicInteger clientErrorCounter;
     
     public ConcurrentCommandStatusCounter() {
         this.map = new ConcurrentHashMap<Integer,AtomicInteger>();
+        this.serverErrorCounter = new AtomicInteger(0);
+        this.clientErrorCounter = new AtomicInteger(0);
     }
     
     public void reset() {
         this.map.clear();
+        this.serverErrorCounter.set(0);
+        this.clientErrorCounter.set(0);
     }
     
     public ConcurrentCommandStatusCounter copy() {
@@ -49,7 +58,19 @@ public class ConcurrentCommandStatusCounter {
         }
         return copy;
     }
-    
+
+    public Map getConcurrentCommandStatusCounter() {
+        return map;
+    }
+
+    public Integer getServerErrorCounter() {
+        return this.serverErrorCounter.get();
+    }
+
+    public Integer getClientErrorCounter() {
+        return this.clientErrorCounter.get();
+    }
+
     public int get(int commandStatus) {
         Integer key = new Integer(commandStatus);
         AtomicInteger val = map.get(key);
@@ -67,6 +88,18 @@ public class ConcurrentCommandStatusCounter {
             val = new AtomicInteger(0);
             map.put(key, val);
         }
+
+        //Increament client/server ErrorCounter as applicable
+        switch (commandStatus) {
+            case SmppConstants.STATUS_OK:
+                break;
+            case SmppConstants.STATUS_INVDSTADR: case SmppConstants.STATUS_INVSRCADR:
+                clientErrorCounter.incrementAndGet();
+                break;
+            default:
+                serverErrorCounter.incrementAndGet();
+        }
+
         return val.incrementAndGet();
     }
     
@@ -95,6 +128,10 @@ public class ConcurrentCommandStatusCounter {
             to.append("=");
             to.append(entry.getValue());
         }
+        to.append(" serverErrorCounter=");
+        to.append(serverErrorCounter);
+        to.append(" clientErrorCounter=");
+        to.append(clientErrorCounter);
 
         return to.toString();
     }
