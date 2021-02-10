@@ -26,6 +26,7 @@ import com.cloudhopper.smpp.SmppSessionConfiguration;
 import com.cloudhopper.smpp.channel.ChannelUtil;
 import com.cloudhopper.smpp.pdu.*;
 import com.cloudhopper.smpp.type.LoggingOptions;
+import com.cloudhopper.smpp.type.SessionCreatedFailedException;
 import com.cloudhopper.smpp.type.SmppChannelException;
 import com.cloudhopper.smpp.type.SmppProcessingException;
 import java.util.TimerTask;
@@ -99,14 +100,25 @@ public class UnboundSmppSession implements SmppSessionChannelListener {
             // prepare an "OK" bind response that the session will send back once flagged as 'serverReady'
             BaseBindResp preparedBindResponse = server.createBindResponse(bindRequest, SmppConstants.STATUS_OK);
 
+            // prepare a "Bind failed" bind response that the session will send back
+            // once we failed to complete after-creation actions
+            BaseBindResp failedBindResponse = server.createBindResponse(bindRequest, SmppConstants.STATUS_BINDFAIL);
+
             try {
                 // create a new a new session and tie the bind response to it
-                server.createSession(sessionId, channel, sessionConfiguration, preparedBindResponse);
+                server.createSession(sessionId, channel, sessionConfiguration, preparedBindResponse, failedBindResponse);
             } catch (SmppProcessingException e) {
                 logger.warn("Bind request was approved, but createSession failed for connection [{}] with error [{}]", channelName, e.getMessage());
                 // create a failed bind response and send back to connection
                 BaseBindResp bindResponse = server.createBindResponse(bindRequest, e.getErrorCode());
                 this.sendResponsePdu(bindResponse);
+                // cancel the timer task & close connection
+                closeChannelAndCancelTimer();
+                return;
+            } catch (SessionCreatedFailedException e) {
+                logger.error("Bind request was approved, but createSession failed for connection [{}] with error [{}]",
+                        channelName, e.getMessage());
+
                 // cancel the timer task & close connection
                 closeChannelAndCancelTimer();
                 return;

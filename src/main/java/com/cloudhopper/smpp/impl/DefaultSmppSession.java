@@ -98,19 +98,22 @@ public class DefaultSmppSession implements SmppServerSession, SmppSessionChannel
     private Long serverSessionId;
     // pre-prepared BindResponse to send back once we're flagged as ready
     private BaseBindResp preparedBindResponse;
+    // pre-prepared BindResponse to send back once we failed to complete after-creation actions
+    private BaseBindResp failedBindResponse;
     private ScheduledExecutorService monitorExecutor;
     private DefaultSmppSessionCounters counters;
 
     /**
      * Creates an SmppSession for a server-based session.
      */
-    public DefaultSmppSession(Type localType, SmppSessionConfiguration configuration, Channel channel, DefaultSmppServer server, Long serverSessionId, BaseBindResp preparedBindResponse, byte interfaceVersion, ScheduledExecutorService monitorExecutor) {
+    public DefaultSmppSession(Type localType, SmppSessionConfiguration configuration, Channel channel, DefaultSmppServer server, Long serverSessionId, BaseBindResp preparedBindResponse, BaseBindResp failedBindResponse, byte interfaceVersion, ScheduledExecutorService monitorExecutor) {
         this(localType, configuration, channel, (SmppSessionHandler)null, monitorExecutor);
         // default state for a server session is that it's binding
         this.state.set(STATE_BINDING);
         this.server = server;
         this.serverSessionId = serverSessionId;
         this.preparedBindResponse = preparedBindResponse;
+        this.failedBindResponse = failedBindResponse;
         this.interfaceVersion = interfaceVersion;
     }
 
@@ -168,6 +171,7 @@ public class DefaultSmppSession implements SmppServerSession, SmppSessionChannel
         this.server = null;
         this.serverSessionId = null;
         this.preparedBindResponse = null;
+        this.failedBindResponse = null;
         if (configuration.isCountersEnabled()) {
             this.counters = new DefaultSmppSessionCounters();
         }
@@ -323,6 +327,15 @@ public class DefaultSmppSession implements SmppServerSession, SmppSessionChannel
         // flag the channel is ready to read
         this.channel.setReadable(true).awaitUninterruptibly();
         this.setBound();
+    }
+
+    @Override
+    public void serverNotReady() {
+        try {
+            this.sendResponsePdu(this.failedBindResponse);
+        } catch (Exception e) {
+            logger.error("failedBindResponse pdu sending failed.", e);
+        }
     }
 
     protected BaseBindResp bind(BaseBind request, long timeoutInMillis) throws RecoverablePduException, UnrecoverablePduException, SmppBindException, SmppTimeoutException, SmppChannelException, InterruptedException {

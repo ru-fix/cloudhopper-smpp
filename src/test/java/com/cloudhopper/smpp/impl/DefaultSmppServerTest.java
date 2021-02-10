@@ -31,6 +31,7 @@ import com.cloudhopper.smpp.SmppSessionConfiguration;
 import com.cloudhopper.smpp.pdu.BaseBind;
 import com.cloudhopper.smpp.pdu.BaseBindResp;
 import com.cloudhopper.smpp.tlv.Tlv;
+import com.cloudhopper.smpp.type.SessionCreatedFailedException;
 import com.cloudhopper.smpp.type.SmppBindException;
 import com.cloudhopper.smpp.type.SmppChannelException;
 import com.cloudhopper.smpp.type.SmppProcessingException;
@@ -53,6 +54,11 @@ public class DefaultSmppServerTest {
     public static final String PASSWORD = "password";
 
     private TestSmppServerHandler serverHandler = new TestSmppServerHandler();
+
+    @Before
+    public void setUp() {
+        serverHandler.needToThrowExceptionWhileSessionCreated = false;
+    }
 
     public SmppServerConfiguration createSmppServerConfiguration() {
         SmppServerConfiguration configuration = new SmppServerConfiguration();
@@ -85,6 +91,13 @@ public class DefaultSmppServerTest {
     public static class TestSmppServerHandler implements SmppServerHandler {
         public HashSet<SmppServerSession> sessions = new HashSet<SmppServerSession>();
         public PollableSmppSessionHandler sessionHandler = new PollableSmppSessionHandler();
+        public boolean needToThrowExceptionWhileSessionCreated;
+
+        private void inSessionCreatedProcess() {
+            if (needToThrowExceptionWhileSessionCreated) {
+                throw new IllegalArgumentException("Something went wrong");
+            }
+        }
 
         @Override
         public void sessionBindRequested(Long sessionId, SmppSessionConfiguration sessionConfiguration, final BaseBind bindRequest) throws SmppProcessingException {
@@ -103,8 +116,14 @@ public class DefaultSmppServerTest {
         }
 
         @Override
-        public void sessionCreated(Long sessionId, SmppServerSession session, BaseBindResp preparedBindResponse) {
+        public void sessionCreated(Long sessionId, SmppServerSession session, BaseBindResp preparedBindResponse) throws SessionCreatedFailedException {
             sessions.add(session);
+            try {
+                inSessionCreatedProcess();
+            } catch (Exception e) {
+                sessions.remove(session);
+                throw new SessionCreatedFailedException(e);
+            }
             // need to do something it now (flag we're ready)
             session.serverReady(sessionHandler);
         }
@@ -571,6 +590,29 @@ public class DefaultSmppServerTest {
             if (server1 != null) {
                 server1.destroy();
             }
+        }
+    }
+
+    @Test
+    public void sessionCreatedFail() throws Exception {
+        serverHandler.needToThrowExceptionWhileSessionCreated = true;
+        DefaultSmppServer server0 = createSmppServer();
+        server0.start();
+
+        try {
+            DefaultSmppClient client0 = new DefaultSmppClient();
+            SmppSessionConfiguration sessionConfig0 = createDefaultConfiguration();
+            try {
+                client0.bind(sessionConfig0);
+                Assert.fail();
+            } catch (SmppBindException e) {
+                Assert.assertEquals(SmppConstants.STATUS_BINDFAIL, e.getBindResponse().getCommandStatus());
+            }
+
+            Assert.assertEquals(0, serverHandler.sessions.size());
+            Assert.assertEquals(0, server0.getChannels().size());
+        } finally {
+            server0.destroy();
         }
     }
 }

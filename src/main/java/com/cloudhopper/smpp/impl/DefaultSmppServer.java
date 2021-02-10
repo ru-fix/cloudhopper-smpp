@@ -38,6 +38,7 @@ import com.cloudhopper.smpp.tlv.Tlv;
 import com.cloudhopper.smpp.transcoder.DefaultPduTranscoder;
 import com.cloudhopper.smpp.transcoder.DefaultPduTranscoderContext;
 import com.cloudhopper.smpp.transcoder.PduTranscoder;
+import com.cloudhopper.smpp.type.SessionCreatedFailedException;
 import com.cloudhopper.smpp.type.SmppChannelException;
 import com.cloudhopper.smpp.type.SmppProcessingException;
 import com.cloudhopper.smpp.util.DaemonExecutors;
@@ -314,7 +315,7 @@ public class DefaultSmppServer implements SmppServer, DefaultSmppServerMXBean {
     }
 
 
-    protected void createSession(Long sessionId, Channel channel, SmppSessionConfiguration config, BaseBindResp preparedBindResponse) throws SmppProcessingException {
+    protected void createSession(Long sessionId, Channel channel, SmppSessionConfiguration config, BaseBindResp preparedBindResponse, BaseBindResp failedBindResponse) throws SmppProcessingException, SessionCreatedFailedException {
         // NOTE: exactly one PDU (bind request) was read from the channel, we
         // now need to delegate permitting this bind request by calling a method
         // further upstream.  Only after the server-side is completely ready to
@@ -330,7 +331,7 @@ public class DefaultSmppServer implements SmppServer, DefaultSmppServerMXBean {
         byte interfaceVersion = this.autoNegotiateInterfaceVersion(config.getInterfaceVersion());
 
         // create a new server session associated with this server
-        DefaultSmppSession session = new DefaultSmppSession(SmppSession.Type.SERVER, config, channel, this, sessionId, preparedBindResponse, interfaceVersion, monitorExecutor);
+        DefaultSmppSession session = new DefaultSmppSession(SmppSession.Type.SERVER, config, channel, this, sessionId, preparedBindResponse, failedBindResponse, interfaceVersion, monitorExecutor);
 
         // replace name of thread used for renaming
         SmppSessionThreadRenamer threadRenamer = (SmppSessionThreadRenamer)channel.getPipeline().get(SmppChannelConstants.PIPELINE_SESSION_THREAD_RENAMER_NAME);
@@ -360,8 +361,17 @@ public class DefaultSmppServer implements SmppServer, DefaultSmppServerMXBean {
         // session created, now pass it upstream
         counters.incrementSessionCreatedAndGet();
         incrementSessionSizeCounters(session);
-        this.serverHandler.sessionCreated(sessionId, session, preparedBindResponse);
-        
+
+        try {
+            this.serverHandler.sessionCreated(sessionId, session, preparedBindResponse);
+        } catch (SessionCreatedFailedException e) {
+            logger.error("sessionCreated call on {} failed. Unable to finish the binding. " +
+                    "Session is going to be destroyed.", serverHandler.getClass().getName(), e);
+            session.serverNotReady();
+            destroySession(sessionId, session);
+            throw e;
+        }
+
         // register this session as an mbean
         if (configuration.isJmxEnabled()) {
             session.registerMBean(configuration.getJmxDomain() + ":type=" + configuration.getName() + "Sessions,name=" + sessionId);
